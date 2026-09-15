@@ -224,6 +224,13 @@ is a guess — the one number in this project that is not measured.
 
 ## Known limits and open risks
 
+- **Resolved 2026-09-15:** deployed. Live at
+  https://chat-with-doc-rag-lzzmbgqojbwksctngsbmeg.streamlit.app/ from https://github.com/AndrewNguyen27296/chat-with-doc-rag. First live answers were
+  garbled: `gemini-3.5-flash` thinks before answering, its thinking tokens
+  count against `max_tokens`, and the 600-token cap was spent before the
+  answer finished, leaving reasoning fragments and no citation. Now sends
+  `reasoning_effort=low` and caps at 4096; verified live with a full cited
+  answer.
 - **Resolved 2026-09-14:** the embedding-model gap and the placeholder floor.
   `scripts/verify_v0.py` ran on the ONNX path with the real `all-MiniLM-L6-v2`
   weights (79 MB, downloaded fresh). All 7 golden questions returned the

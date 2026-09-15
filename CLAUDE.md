@@ -17,10 +17,11 @@ moment" it exists to deliver. They are sold through three tiers: advisory audits
 | :--- | :--- | :--- | :--- | :--- |
 | 1. Data Pipeline Dashboard | Freight ops briefing from messy multi-schema CSVs | V1 | yes | **live** |
 | 2. Invoice & Vision Parser | Zero-manual-entry AP with an arithmetic audit | V1 | yes | **live** |
-| 3. Chat with Docs RAG | Cited, hallucination-free answers over company docs | V1 | not yet | not yet |
+| 3. Chat with Docs RAG | Cited, hallucination-free answers over company docs | V1 | yes | **live** |
 
 Pillar 1 is live at https://freight-operations-intelligence-gr6t94nmogzgzh3cgy2plf.streamlit.app/.
 Pillar 2 is live at https://invoice-vision-parser-uezswbeps38zrocbeej9hf.streamlit.app/.
+Pillar 3 is live at https://chat-with-doc-rag-lzzmbgqojbwksctngsbmeg.streamlit.app/
 
 ## The plan, in order
 
@@ -28,8 +29,7 @@ The bottleneck is not building. All three are built. The bottleneck is that a
 prospect cannot reach them, so work top-down and resist polishing.
 
 **Phase A - ship what exists.** git init, push to GitHub, deploy to Streamlit
-Community Cloud, smoke-test the live URL cold. Done for Pillars 1 and 2;
-Pillar 3 still needs it.
+Community Cloud, smoke-test the live URL cold. Done for all three pillars.
 
 **Phase B - turn demos into conversations.** A 60-second screen recording per
 pillar. A one-page offer with price and timeline. A list of 25-30 Nordic
@@ -92,7 +92,18 @@ whether or not it is listed - the only real choice is which version.
 
 ## Where this pillar stands
 
-**V1 built. Not in git, not deployed.** Phase A has not started here.
+**V1 live.** Repository https://github.com/AndrewNguyen27296/chat-with-doc-rag, deployed to Streamlit Community Cloud and
+smoke-tested cold on 2026-09-15: the demo question answers with a
+page-and-section citation, the World Cup question is refused before the
+model is called, and the spend guard counter shows in the sidebar.
+
+**The trap this pillar hit on its first deploy:** Gemini 3.x is a thinking
+model, and on Google's OpenAI-compatible endpoint the thinking tokens count
+against `max_tokens`. With the original 600-token cap and the default
+thinking level, the first live answers came back as fragments of the model's
+reasoning with the real answer cut off and no citation. Fixed by sending
+`reasoning_effort=low` and raising the cap to 4096. If you switch models,
+re-check this first: a thinking model at a tight cap fails exactly this way.
 
 A dependency pre-flight has already been run against Streamlit Cloud's Python
 3.14, and this pillar is clear:
@@ -124,6 +135,6 @@ a public URL spends the author's key.
 
 ## Next action here
 
-Phase A, step 1: `git init` and push, then deploy, following the recipe
-above. Set the API key in Streamlit Cloud secrets and confirm the spend guard is
-active before sharing the URL.
+Phase A is complete for this pillar. Next is Phase B: the 60-second screen
+recording (script in `README.md` section 6), the one-page offer, and the
+prospect list. No product work until Phase B has produced a conversation.

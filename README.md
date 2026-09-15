@@ -3,7 +3,7 @@
 > **The North Star:** *"The Hallucination-Free Enterprise Brain."*  
 > An employee or customer support agent asks a complex, nuanced question about internal company policies, standard operating procedures (SOPs), or vendor contracts, and receives an instant, grounded answer in 3 seconds—with verifiable, clickable citations down to the exact page and paragraph.
 
-**Status: V1 built. Not yet in git, not yet deployed.** The next step is Phase A — `git init`, push, and deploy to Streamlit Community Cloud. A dependency pre-flight against Cloud's Python 3.14 has already been run and this pillar is clear. See `CLAUDE.md` for the portfolio-wide plan, the deploy recipe, and the trap that cost Pillar 1 its first build.
+**Status: V1 live.** Repository: https://github.com/AndrewNguyen27296/chat-with-doc-rag. Live demo: https://chat-with-doc-rag-lzzmbgqojbwksctngsbmeg.streamlit.app/ — deployed to Streamlit Community Cloud on 2026-09-15 and smoke-tested cold: the demo question answers with a page-and-section citation, the off-topic question is refused before the model is called, and the per-session spend guard shows in the sidebar. See `CLAUDE.md` for the portfolio-wide plan and the deploy recipe.
 
 ---
 
@@ -58,7 +58,7 @@ When vibe coding with AI, enforce these technical guardrails:
 * [x] **Pre-Loaded Sample SOPs:** Include 2 sample corporate handbooks in the sidebar for instant 1-click evaluation without file uploads.
 * [x] **Pluggable Answer Provider (`rag/providers.py`):** Anthropic plus any OpenAI-compatible endpoint (Gemini's free tier today; DeepSeek, Groq or a local Ollama by changing two env vars). Makes the Tier 1 "model selection" audit demonstrable rather than theoretical.
 * [x] **Spend Guard:** Per-session cap on model answers; past it the app degrades to retrieval-only instead of billing you. A public URL carries your key.
-* [ ] **Deploy to Streamlit Cloud:** Public live URL ready to embed in proposals. *(Repository is deploy-ready: torch-free dependency set, pinned versions, no system packages, `app.py` at the root, samples indexed on first boot. See §7 below.)*
+* [x] **Deploy to Streamlit Cloud:** Public live URL ready to embed in proposals. *(Live at https://chat-with-doc-rag-lzzmbgqojbwksctngsbmeg.streamlit.app/ since 2026-09-15. Torch-free dependency set, pinned versions, no system packages, `app.py` at the root, samples indexed on first boot. See §7 below.)*
 
 ### Phase V2: Commercial Enterprise Delivery (The Upsell Package)
 * [ ] **Multi-Document Ingestion:** Allow users to upload full folders of PDFs, DOCX, and Markdown files.
@@ -137,7 +137,6 @@ packages, no `packages.txt` needed.
 
    ```toml
    GEMINI_API_KEY = "your-key"
-   SIMILARITY_FLOOR = "0.XX"
    ```
 
    Get a free key at [aistudio.google.com/apikey](https://aistudio.google.com/apikey).
@@ -156,3 +155,10 @@ Set `EMBEDDING_BACKEND=sentence-transformers` to go back, locally.
 (default 20) caps model answers per browser session; past it the app degrades
 to retrieval-only rather than billing you. Off-topic questions are refused
 before the model is called, so junk traffic is free.
+
+**Thinking models.** Gemini 3.x thinks before it answers, and its thinking
+tokens count against `MAX_ANSWER_TOKENS`. At the model's default thinking level
+with the original 600-token cap, the live demo returned truncated answers with
+fragments of the reasoning in them and no citation. The app now sends
+`reasoning_effort=low` (`GEMINI_REASONING_EFFORT`) and caps at 4096 tokens,
+which is plenty for a three-sentence grounded answer.
