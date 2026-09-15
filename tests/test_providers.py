@@ -77,14 +77,26 @@ class _Chunk:
 class FakeOpenAI:
     """Mimics client.chat.completions.create(stream=True)."""
 
-    def __init__(self, chunks=("Two hours ", "[Doc.pdf, Page 4]"), reject_max_tokens=False):
+    def __init__(
+        self,
+        chunks=("Two hours ", "[Doc.pdf, Page 4]"),
+        reject_max_tokens=False,
+        reject_reasoning=False,
+    ):
         self.calls: list[dict] = []
         outer = self
+
+        class BadRequest(Exception):
+            """Shaped like openai.BadRequestError: a 400 from the endpoint."""
+
+            status_code = 400
 
         class Completions:
             def create(self, **kwargs):
                 if reject_max_tokens and "max_tokens" in kwargs:
                     raise TypeError("unexpected keyword argument 'max_tokens'")
+                if reject_reasoning and "reasoning_effort" in kwargs:
+                    raise BadRequest("Unknown parameter: reasoning_effort")
                 outer.calls.append(kwargs)
                 return iter([_Chunk(c) for c in chunks])
 
@@ -207,6 +219,46 @@ def _run() -> int:
             print(f"ERROR {name}: {type(error).__name__}: {error}")
     print(f"\n{len(tests) - failures}/{len(tests)} passed")
     return 1 if failures else 0
+
+
+# --- thinking level (Gemini 3.x thinks against max_tokens) ---
+
+
+def test_gemini_sends_a_low_reasoning_effort_by_default():
+    """Seen live 2026-09-15: at the default thinking level a 600-token cap came
+    back as reasoning fragments with the answer cut off."""
+    from rag.providers import gemini_provider
+
+    fake = FakeOpenAI()
+    provider = gemini_provider(api_key="k", client=fake)
+    out = "".join(provider.stream(system="SYS", user="USER", max_tokens=1500))
+    assert out == "Two hours [Doc.pdf, Page 4]"
+    assert fake.calls[0]["reasoning_effort"] == "low"
+    assert fake.calls[0]["max_tokens"] == 1500
+
+
+def test_generic_compat_provider_sends_no_reasoning_effort():
+    """Groq, Ollama and friends may not accept it; only send it when asked."""
+    from rag.providers import OpenAICompatProvider
+
+    fake = FakeOpenAI()
+    provider = OpenAICompatProvider(api_key="k", base_url="http://x", model="m", client=fake)
+    "".join(provider.stream(system="SYS", user="USER", max_tokens=42))
+    assert "reasoning_effort" not in fake.calls[0]
+
+
+def test_openai_compat_retries_without_reasoning_effort_when_rejected():
+    """A 400 for the thinking parameter must not kill the demo either."""
+    from rag.providers import OpenAICompatProvider
+
+    fake = FakeOpenAI(reject_reasoning=True)
+    provider = OpenAICompatProvider(
+        api_key="k", base_url="http://x", model="m", client=fake, reasoning_effort="low"
+    )
+    out = "".join(provider.stream(system="SYS", user="USER", max_tokens=42))
+    assert out == "Two hours [Doc.pdf, Page 4]"
+    assert "reasoning_effort" not in fake.calls[0]
+    assert fake.calls[0]["max_tokens"] == 42
 
 
 if __name__ == "__main__":

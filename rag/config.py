@@ -52,7 +52,11 @@ MIN_CHUNK_CHARS = int(os.getenv("MIN_CHUNK_CHARS", "40"))
 # The model that writes the grounded answer. Kept as an env var rather than a
 # pinned constant so the demo can move to a newer Sonnet without a code change.
 ANSWER_MODEL = os.getenv("ANSWER_MODEL", "claude-sonnet-5")
-MAX_ANSWER_TOKENS = int(os.getenv("MAX_ANSWER_TOKENS", "600"))
+# Output cap for one answer. On thinking models (Gemini 3.x, Claude with
+# adaptive thinking) this cap INCLUDES the thinking tokens, and hitting it
+# returns a truncated or empty answer rather than a shorter one. Keep it well
+# above the two-or-three-sentence answer the prompt asks for.
+MAX_ANSWER_TOKENS = int(os.getenv("MAX_ANSWER_TOKENS", "1500"))
 
 # The pre-model refusal gate. If the best retrieved chunk scores below this,
 # the app refuses *without* calling the model: cheaper than asking an LLM to
@@ -75,6 +79,13 @@ GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
 GEMINI_BASE_URL = os.getenv(
     "GEMINI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta/openai/"
 )
+# Gemini 3.x models think before they answer and cannot be told not to. At
+# their default level ("medium") a short grounded answer spent most of the
+# output cap thinking, and fragments of the reasoning leaked into the answer
+# (seen on the live demo, 2026-09-15). "low" is plenty for reading three
+# excerpts. Valid: "minimal" (not on every model), "low", "medium", "high";
+# empty sends nothing, for endpoints that do not accept the parameter.
+GEMINI_REASONING_EFFORT = os.getenv("GEMINI_REASONING_EFFORT", "low").strip().lower()
 
 # --- Spend guard ---
 # A public demo URL carries your key. Cap questions per browser session; past

@@ -28,6 +28,7 @@ from rag.config import (
     ANSWER_MODEL,
     GEMINI_BASE_URL,
     GEMINI_MODEL,
+    GEMINI_REASONING_EFFORT,
     LLM_PROVIDER,
 )
 
@@ -103,11 +104,14 @@ class OpenAICompatProvider:
         free_tier: bool = False,
         caveat: str = "",
         client: Any | None = None,
+        reasoning_effort: str | None = None,
     ) -> None:
         self.model = model
         self.base_url = base_url
         self._api_key = api_key
         self._client = client
+        # Thinking level for reasoning models; None sends nothing.
+        self.reasoning_effort = reasoning_effort or None
         self.info = ProviderInfo(
             name=name, model=model, free_tier=free_tier, caveat=caveat
         )
@@ -120,26 +124,41 @@ class OpenAICompatProvider:
             self._client = OpenAI(api_key=self._api_key, base_url=self.base_url)
         return self._client
 
-    def stream(self, system: str, user: str, max_tokens: int) -> Iterator[str]:
-        messages = [
-            {"role": "system", "content": system},
-            {"role": "user", "content": user},
-        ]
+    def _create(self, request: dict[str, Any]) -> Any:
+        """One streaming request, degrading gracefully on shape mismatches."""
         try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                stream=True,
-                max_tokens=max_tokens,
-            )
+            return self.client.chat.completions.create(**request)
         except TypeError:
             # Some compatibility layers renamed max_tokens. Losing the cap is
             # better than losing the demo.
-            response = self.client.chat.completions.create(
-                model=self.model, messages=messages, stream=True
-            )
+            request = {k: v for k, v in request.items() if k != "max_tokens"}
+            return self.client.chat.completions.create(**request)
+        except Exception as error:
+            # An endpoint that rejects reasoning_effort with a 400 (a non-Gemini
+            # compat layer, say) should still answer at its own default level.
+            rejected = getattr(error, "status_code", None) == 400
+            if rejected and "reasoning_effort" in request:
+                request = {k: v for k, v in request.items() if k != "reasoning_effort"}
+                return self.client.chat.completions.create(**request)
+            raise
 
-        for chunk in response:
+    def stream(self, system: str, user: str, max_tokens: int) -> Iterator[str]:
+        request: dict[str, Any] = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            "stream": True,
+            "max_tokens": max_tokens,
+        }
+        if self.reasoning_effort:
+            # Thinking tokens count against max_tokens on Gemini 3.x. At the
+            # default level the model thinks the cap away and the answer
+            # arrives truncated, with reasoning fragments in it.
+            request["reasoning_effort"] = self.reasoning_effort
+
+        for chunk in self._create(request):
             choices = getattr(chunk, "choices", None)
             if not choices:
                 continue
@@ -160,6 +179,7 @@ def gemini_provider(
     api_key: str | None = None,
     model: str = GEMINI_MODEL,
     client: Any | None = None,
+    reasoning_effort: str | None = GEMINI_REASONING_EFFORT,
 ) -> OpenAICompatProvider:
     return OpenAICompatProvider(
         api_key=api_key or os.getenv("GEMINI_API_KEY"),
@@ -169,6 +189,7 @@ def gemini_provider(
         free_tier=True,
         caveat=GEMINI_CAVEAT,
         client=client,
+        reasoning_effort=reasoning_effort,
     )
 
 
