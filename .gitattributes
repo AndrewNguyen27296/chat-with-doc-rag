@@ -1,0 +1,3 @@
+# Normalise text line endings; keep the sample PDFs byte-exact on every platform.
+* text=auto
+*.pdf binary

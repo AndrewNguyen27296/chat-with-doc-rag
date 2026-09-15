@@ -1,0 +1,17 @@
+# Secrets — never commit
+.env
+.streamlit/secrets.toml
+
+# Local vector index (rebuilt from sample_docs/ on first run)
+.chroma/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# OS
+.DS_Store
+Thumbs.db

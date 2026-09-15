@@ -1,0 +1,20 @@
+# Pillar 3 — Chat with Docs RAG. Runtime dependencies only.
+#
+# Deliberately lean, and deliberately torch-free: sentence-transformers pulls
+# torch, and on Linux PyPI's torch is the CUDA build (554 MB wheel plus GBs of
+# nvidia packages), which does not fit Streamlit Community Cloud. Embeddings
+# run through chromadb's bundled quantized ONNX build of the same model
+# (all-MiniLM-L6-v2) on onnxruntime, which chromadb already installs.
+#
+# Pinned exactly. Versions verified together on Python 3.10/3.11.
+# Dev-only tooling lives in requirements-dev.txt.
+
+streamlit==1.63.0
+chromadb==1.5.9
+pypdf==6.18.0
+python-dotenv==1.2.2
+
+# Answer generation. openai is the client for Gemini's OpenAI-compatible
+# endpoint (and would equally serve DeepSeek, Groq, OpenRouter or Ollama).
+openai==3.13.0
+anthropic==1.5.0

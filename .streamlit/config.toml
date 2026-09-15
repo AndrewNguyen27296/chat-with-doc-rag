@@ -1,0 +1,15 @@
+# Theme for the client-facing demo. Streamlit Community Cloud reads this file.
+[theme]
+base = "light"
+primaryColor = "#1f6feb"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f5f7fa"
+textColor = "#12263f"
+font = "sans serif"
+
+[server]
+# The sample handbooks ship with the repo; nobody uploads anything.
+maxUploadSize = 5
+
+[browser]
+gatherUsageStats = false

@@ -1,0 +1,9 @@
+# Development only — not installed on Streamlit Community Cloud.
+-r requirements.txt
+
+# Regenerates the sample handbooks in sample_docs/.
+reportlab==4.4.10
+
+# The test suites also run with plain `python tests/test_*.py`; pytest is
+# optional convenience.
+pytest==9.1.1
