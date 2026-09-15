@@ -65,13 +65,14 @@ class _Delta:
 
 
 class _Choice:
-    def __init__(self, content):
+    def __init__(self, content, finish_reason=None):
         self.delta = _Delta(content)
+        self.finish_reason = finish_reason
 
 
 class _Chunk:
-    def __init__(self, content):
-        self.choices = [_Choice(content)]
+    def __init__(self, content, finish_reason=None):
+        self.choices = [_Choice(content, finish_reason)]
 
 
 class FakeOpenAI:
@@ -98,7 +99,10 @@ class FakeOpenAI:
                 if reject_reasoning and "reasoning_effort" in kwargs:
                     raise BadRequest("Unknown parameter: reasoning_effort")
                 outer.calls.append(kwargs)
-                return iter([_Chunk(c) for c in chunks])
+                # A chunk is a string, or a (content, finish_reason) pair.
+                return iter(
+                    [_Chunk(*c) if isinstance(c, tuple) else _Chunk(c) for c in chunks]
+                )
 
         class Chat:
             completions = Completions()
@@ -259,6 +263,27 @@ def test_openai_compat_retries_without_reasoning_effort_when_rejected():
     assert out == "Two hours [Doc.pdf, Page 4]"
     assert "reasoning_effort" not in fake.calls[0]
     assert fake.calls[0]["max_tokens"] == 42
+
+
+def test_openai_compat_flags_a_stream_cut_off_by_the_token_cap():
+    """Seen live 2026-09-15 at a 1500 cap: the answer ended mid-sentence with
+    no indication why. Thinking models share the cap with their reasoning."""
+    from rag.providers import TRUNCATION_NOTE, OpenAICompatProvider
+
+    fake = FakeOpenAI(chunks=("The dispatcher must ", ("notify the lead", "length")))
+    provider = OpenAICompatProvider(api_key="k", base_url="http://x", model="m", client=fake)
+    out = "".join(provider.stream(system="SYS", user="USER", max_tokens=5))
+    assert out.startswith("The dispatcher must notify the lead")
+    assert out.endswith(TRUNCATION_NOTE)
+
+
+def test_openai_compat_adds_nothing_to_a_complete_stream():
+    from rag.providers import OpenAICompatProvider
+
+    fake = FakeOpenAI(chunks=("Two hours ", ("[Doc.pdf, Page 4]", "stop")))
+    provider = OpenAICompatProvider(api_key="k", base_url="http://x", model="m", client=fake)
+    out = "".join(provider.stream(system="SYS", user="USER", max_tokens=42))
+    assert out == "Two hours [Doc.pdf, Page 4]"
 
 
 if __name__ == "__main__":

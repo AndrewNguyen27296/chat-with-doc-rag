@@ -55,8 +55,10 @@ ANSWER_MODEL = os.getenv("ANSWER_MODEL", "claude-sonnet-5")
 # Output cap for one answer. On thinking models (Gemini 3.x, Claude with
 # adaptive thinking) this cap INCLUDES the thinking tokens, and hitting it
 # returns a truncated or empty answer rather than a shorter one. Keep it well
-# above the two-or-three-sentence answer the prompt asks for.
-MAX_ANSWER_TOKENS = int(os.getenv("MAX_ANSWER_TOKENS", "1500"))
+# above the two-or-three-sentence answer the prompt asks for: 1500 still
+# truncated gemini-3.5-flash at its "low" thinking level on the live demo.
+# The prompt, not this cap, is what keeps answers short.
+MAX_ANSWER_TOKENS = int(os.getenv("MAX_ANSWER_TOKENS", "4096"))
 
 # The pre-model refusal gate. If the best retrieved chunk scores below this,
 # the app refuses *without* calling the model: cheaper than asking an LLM to

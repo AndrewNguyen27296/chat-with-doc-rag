@@ -88,6 +88,13 @@ class AnthropicProvider:
                 yield delta
 
 
+TRUNCATION_NOTE = (
+    "\n\n*Answer cut off by the output-token cap (`MAX_ANSWER_TOKENS`), which on "
+    "thinking models is shared with the model's reasoning. Raise the cap or "
+    "lower `GEMINI_REASONING_EFFORT`.*"
+)
+
+
 class OpenAICompatProvider:
     """Any OpenAI-compatible chat-completions endpoint.
 
@@ -158,14 +165,23 @@ class OpenAICompatProvider:
             # arrives truncated, with reasoning fragments in it.
             request["reasoning_effort"] = self.reasoning_effort
 
+        truncated = False
         for chunk in self._create(request):
             choices = getattr(chunk, "choices", None)
             if not choices:
                 continue
-            delta = getattr(choices[0], "delta", None)
+            choice = choices[0]
+            if getattr(choice, "finish_reason", None) == "length":
+                truncated = True
+            delta = getattr(choice, "delta", None)
             text = getattr(delta, "content", None) if delta else None
             if text:
                 yield text
+        if truncated:
+            # Say so rather than end mid-sentence: on thinking models the cap
+            # is shared with the reasoning, so this is a configuration fault
+            # (MAX_ANSWER_TOKENS too low), not a model quirk to hide.
+            yield TRUNCATION_NOTE
 
 
 GEMINI_CAVEAT = (
