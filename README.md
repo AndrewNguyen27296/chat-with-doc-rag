@@ -54,7 +54,7 @@ When vibe coding with AI, enforce these technical guardrails:
 
 ### Phase V1: The Conversational Hero Demo (Evening 2 — Visual Delight)
 * [x] **Streamlit Chat Interface (`app.py`):** Use `st.chat_message("user")` and `st.chat_message("assistant")` with persistent session state.
-* [x] **Streamed Response & Citation Drawer:** Stream Claude 3.5 Sonnet / Gemini response, appending an expandable `st.expander("📚 View Cited Sources & Page Excerpts")` below each answer.
+* [x] **Streamed Response & Citation Drawer:** Stream Claude Sonnet 5 / Gemini response, appending an expandable `st.expander("📚 View Cited Sources & Page Excerpts")` below each answer.
 * [x] **Pre-Loaded Sample SOPs:** Include 2 sample corporate handbooks in the sidebar for instant 1-click evaluation without file uploads.
 * [x] **Pluggable Answer Provider (`rag/providers.py`):** Anthropic plus any OpenAI-compatible endpoint (Gemini's free tier today; DeepSeek, Groq or a local Ollama by changing two env vars). Makes the Tier 1 "model selection" audit demonstrable rather than theoretical.
 * [x] **Spend Guard:** Per-session cap on model answers; past it the app degrades to retrieval-only instead of billing you. A public URL carries your key.

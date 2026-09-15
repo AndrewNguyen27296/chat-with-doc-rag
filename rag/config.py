@@ -51,7 +51,7 @@ MIN_CHUNK_CHARS = int(os.getenv("MIN_CHUNK_CHARS", "40"))
 # --- V1: answer generation ---
 # The model that writes the grounded answer. Kept as an env var rather than a
 # pinned constant so the demo can move to a newer Sonnet without a code change.
-ANSWER_MODEL = os.getenv("ANSWER_MODEL", "claude-3-5-sonnet-latest")
+ANSWER_MODEL = os.getenv("ANSWER_MODEL", "claude-sonnet-5")
 MAX_ANSWER_TOKENS = int(os.getenv("MAX_ANSWER_TOKENS", "600"))
 
 # The pre-model refusal gate. If the best retrieved chunk scores below this,
