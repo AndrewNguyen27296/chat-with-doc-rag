@@ -135,9 +135,10 @@ class OpenAICompatProvider:
         """One streaming request, degrading gracefully on shape mismatches and transient server errors."""
         import time
 
-        # gemini-3.5-flash requires native thought signatures not supported over OpenAI compat
-        if request.get("model") == "gemini-3.5-flash":
-            request = {**request, "model": "gemini-2.5-flash"}
+        # Normalize known obsolete/invalid model tags to the supported gemini-2.0-flash
+        model_name = str(request.get("model", "")).lower()
+        if model_name in ("gemini-3.5-flash", "gemini-2.5-flash", "gemini-1.5-flash"):
+            request = {**request, "model": "gemini-2.0-flash"}
 
         def _call(req: dict[str, Any]) -> Any:
             try:
@@ -148,13 +149,12 @@ class OpenAICompatProvider:
                 req_no_tokens = {k: v for k, v in req.items() if k != "max_tokens"}
                 return self.client.chat.completions.create(**req_no_tokens)
 
-        # Candidate models to try if the requested model returns 500 or 404
-        model_name = str(request.get("model", ""))
-        fallback_models: list[str] = []
-        if "gemini" in model_name.lower():
-            for m in ("gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"):
-                if m != model_name and m not in fallback_models:
-                    fallback_models.append(m)
+        # Fallback candidates if the primary model fails
+        fallback_models = (
+            ["gemini-2.0-flash", "gemini-2.0-flash-lite"]
+            if "gemini" in str(request.get("model", "")).lower()
+            else []
+        )
 
         try:
             return _call(request)
@@ -172,12 +172,13 @@ class OpenAICompatProvider:
             # If the model itself failed with 404 or 500, try known stable fallback models
             if status_code in (404, 500, 502, 503) and fallback_models:
                 for alt_model in fallback_models:
-                    req_alt = {k: v for k, v in request.items() if k not in ("reasoning_effort", "model")}
-                    req_alt["model"] = alt_model
-                    try:
-                        return _call(req_alt)
-                    except Exception:
-                        continue
+                    if alt_model != request.get("model"):
+                        req_alt = {k: v for k, v in request.items() if k not in ("reasoning_effort", "model")}
+                        req_alt["model"] = alt_model
+                        try:
+                            return _call(req_alt)
+                        except Exception:
+                            continue
 
             # Transient 500/502/503/504 or 429 rate limit: pause briefly and retry once
             if status_code in (429, 500, 502, 503, 504):

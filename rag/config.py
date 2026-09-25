@@ -77,7 +77,7 @@ LLM_PROVIDER = os.getenv("LLM_PROVIDER", "auto").strip().lower()
 
 # Gemini via its OpenAI-compatible endpoint. One client class therefore also
 # covers DeepSeek, Groq, OpenRouter and a local Ollama, should you add them.
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 GEMINI_BASE_URL = os.getenv(
     "GEMINI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta/openai/"
 )
