@@ -135,10 +135,10 @@ class OpenAICompatProvider:
         """One streaming request, degrading gracefully on shape mismatches and transient server errors."""
         import time
 
-        # Normalize known obsolete/invalid model tags to the supported gemini-2.0-flash
+        # Normalize known obsolete/invalid model tags to Google's recommended gemini-3.8-flash
         model_name = str(request.get("model", "")).lower()
-        if model_name in ("gemini-3.5-flash", "gemini-2.5-flash", "gemini-1.5-flash"):
-            request = {**request, "model": "gemini-2.0-flash"}
+        if model_name in ("gemini-3.5-flash", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"):
+            request = {**request, "model": "gemini-3.8-flash"}
 
         def _call(req: dict[str, Any]) -> Any:
             try:
@@ -151,7 +151,7 @@ class OpenAICompatProvider:
 
         # Fallback candidates if the primary model fails
         fallback_models = (
-            ["gemini-2.0-flash", "gemini-2.0-flash-lite"]
+            ["gemini-3.8-flash", "gemini-3.5-flash-lite"]
             if "gemini" in str(request.get("model", "")).lower()
             else []
         )
