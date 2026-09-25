@@ -358,9 +358,10 @@ def answer_question(question: str, scope: str | None, floor: float) -> None:
         except Exception as exc:
             # Revert the asked counter so a server fault does not penalise the user
             st.session_state.asked = max(0, st.session_state.get("asked", 1) - 1)
+            err_msg = str(exc)
             fallback_body = (
                 "⚠️ **Upstream AI provider error** — the language model "
-                f"service encountered an error (`{type(exc).__name__}`).\n\n"
+                f"service encountered an error (`{type(exc).__name__}`: `{err_msg}`).\n\n"
                 "Document retrieval ran successfully and is unaffected. "
                 "The relevant handbook passages are cited below."
             )
