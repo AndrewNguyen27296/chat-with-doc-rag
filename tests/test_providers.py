@@ -83,6 +83,7 @@ class FakeOpenAI:
         chunks=("Two hours ", "[Doc.pdf, Page 4]"),
         reject_max_tokens=False,
         reject_reasoning=False,
+        reject_reasoning_500=False,
     ):
         self.calls: list[dict] = []
         outer = self
@@ -92,12 +93,19 @@ class FakeOpenAI:
 
             status_code = 400
 
+        class InternalServerError(Exception):
+            """Shaped like openai.InternalServerError: a 500 from the endpoint."""
+
+            status_code = 500
+
         class Completions:
             def create(self, **kwargs):
                 if reject_max_tokens and "max_tokens" in kwargs:
                     raise TypeError("unexpected keyword argument 'max_tokens'")
                 if reject_reasoning and "reasoning_effort" in kwargs:
                     raise BadRequest("Unknown parameter: reasoning_effort")
+                if reject_reasoning_500 and "reasoning_effort" in kwargs:
+                    raise InternalServerError("Internal server error on reasoning_effort")
                 outer.calls.append(kwargs)
                 # A chunk is a string, or a (content, finish_reason) pair.
                 return iter(
@@ -256,6 +264,20 @@ def test_openai_compat_retries_without_reasoning_effort_when_rejected():
     from rag.providers import OpenAICompatProvider
 
     fake = FakeOpenAI(reject_reasoning=True)
+    provider = OpenAICompatProvider(
+        api_key="k", base_url="http://x", model="m", client=fake, reasoning_effort="low"
+    )
+    out = "".join(provider.stream(system="SYS", user="USER", max_tokens=42))
+    assert out == "Two hours [Doc.pdf, Page 4]"
+    assert "reasoning_effort" not in fake.calls[0]
+    assert fake.calls[0]["max_tokens"] == 42
+
+
+def test_openai_compat_retries_without_reasoning_effort_on_500():
+    """A 500 triggered by reasoning_effort must be retried without it."""
+    from rag.providers import OpenAICompatProvider
+
+    fake = FakeOpenAI(reject_reasoning_500=True)
     provider = OpenAICompatProvider(
         api_key="k", base_url="http://x", model="m", client=fake, reasoning_effort="low"
     )

@@ -132,21 +132,37 @@ class OpenAICompatProvider:
         return self._client
 
     def _create(self, request: dict[str, Any]) -> Any:
-        """One streaming request, degrading gracefully on shape mismatches."""
+        """One streaming request, degrading gracefully on shape mismatches and transient server errors."""
+        import time
+
+        def _call(req: dict[str, Any]) -> Any:
+            try:
+                return self.client.chat.completions.create(**req)
+            except TypeError:
+                # Some compatibility layers renamed max_tokens. Losing the cap is
+                # better than losing the demo.
+                req_no_tokens = {k: v for k, v in req.items() if k != "max_tokens"}
+                return self.client.chat.completions.create(**req_no_tokens)
+
         try:
-            return self.client.chat.completions.create(**request)
-        except TypeError:
-            # Some compatibility layers renamed max_tokens. Losing the cap is
-            # better than losing the demo.
-            request = {k: v for k, v in request.items() if k != "max_tokens"}
-            return self.client.chat.completions.create(**request)
+            return _call(request)
         except Exception as error:
-            # An endpoint that rejects reasoning_effort with a 400 (a non-Gemini
-            # compat layer, say) should still answer at its own default level.
-            rejected = getattr(error, "status_code", None) == 400
-            if rejected and "reasoning_effort" in request:
-                request = {k: v for k, v in request.items() if k != "reasoning_effort"}
-                return self.client.chat.completions.create(**request)
+            status_code = getattr(error, "status_code", None)
+            # Endpoints (like Gemini's OpenAI compat layer) may reject reasoning_effort
+            # with 400 or choke on it with a 500 error. Retry without reasoning_effort.
+            if "reasoning_effort" in request and status_code in (400, 500):
+                req_no_reasoning = {k: v for k, v in request.items() if k != "reasoning_effort"}
+                try:
+                    return _call(req_no_reasoning)
+                except Exception:
+                    pass
+
+            # Transient 500/502/503/504 or 429 rate limit: pause briefly and retry once
+            if status_code in (429, 500, 502, 503, 504):
+                time.sleep(1.0)
+                fallback_request = {k: v for k, v in request.items() if k != "reasoning_effort"}
+                return _call(fallback_request)
+
             raise
 
     def stream(self, system: str, user: str, max_tokens: int) -> Iterator[str]:

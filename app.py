@@ -334,25 +334,45 @@ def answer_question(question: str, scope: str | None, floor: float) -> None:
             return
 
         st.session_state.asked = st.session_state.get("asked", 0) + 1
-        text = st.write_stream(
-            stream_answer(question, hits, provider=provider, floor=floor)
-        )
-        result = Answer(text=str(text), citations=list(hits))
-        if not result.is_grounded:
-            st.warning(
-                "This answer carries no inline citation. Per the project's "
-                "invariant that is a bug, not a style preference.",
-                icon="⚠️",
+        try:
+            text = st.write_stream(
+                stream_answer(question, hits, provider=provider, floor=floor)
             )
-        render_sources(hits, [], floor)
-        st.session_state.messages.append(
-            {
-                "role": "assistant",
-                "content": result.text,
-                "citations": list(hits),
-                "floor": floor,
-            }
-        )
+            result = Answer(text=str(text), citations=list(hits))
+            if not result.is_grounded:
+                st.warning(
+                    "This answer carries no inline citation. Per the project's "
+                    "invariant that is a bug, not a style preference.",
+                    icon="⚠️",
+                )
+            render_sources(hits, [], floor)
+            st.session_state.messages.append(
+                {
+                    "role": "assistant",
+                    "content": result.text,
+                    "citations": list(hits),
+                    "floor": floor,
+                }
+            )
+        except Exception as exc:
+            # Revert the asked counter so a server fault does not penalise the user
+            st.session_state.asked = max(0, st.session_state.get("asked", 1) - 1)
+            fallback_body = (
+                "⚠️ **Upstream AI provider error** — the language model "
+                f"service encountered an error (`{type(exc).__name__}`).\n\n"
+                "Document retrieval ran successfully and is unaffected. "
+                "The relevant handbook passages are cited below."
+            )
+            st.markdown(fallback_body)
+            render_sources(hits, [], floor)
+            st.session_state.messages.append(
+                {
+                    "role": "assistant",
+                    "content": fallback_body,
+                    "citations": list(hits),
+                    "floor": floor,
+                }
+            )
 
 
 # --- page ---
