@@ -135,6 +135,10 @@ class OpenAICompatProvider:
         """One streaming request, degrading gracefully on shape mismatches and transient server errors."""
         import time
 
+        # gemini-3.5-flash requires native thought signatures not supported over OpenAI compat
+        if request.get("model") == "gemini-3.5-flash":
+            request = {**request, "model": "gemini-2.5-flash"}
+
         def _call(req: dict[str, Any]) -> Any:
             try:
                 return self.client.chat.completions.create(**req)
@@ -143,6 +147,14 @@ class OpenAICompatProvider:
                 # better than losing the demo.
                 req_no_tokens = {k: v for k, v in req.items() if k != "max_tokens"}
                 return self.client.chat.completions.create(**req_no_tokens)
+
+        # Candidate models to try if the requested model returns 500 or 404
+        model_name = str(request.get("model", ""))
+        fallback_models: list[str] = []
+        if "gemini" in model_name.lower():
+            for m in ("gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"):
+                if m != model_name and m not in fallback_models:
+                    fallback_models.append(m)
 
         try:
             return _call(request)
@@ -156,6 +168,16 @@ class OpenAICompatProvider:
                     return _call(req_no_reasoning)
                 except Exception:
                     pass
+
+            # If the model itself failed with 404 or 500, try known stable fallback models
+            if status_code in (404, 500, 502, 503) and fallback_models:
+                for alt_model in fallback_models:
+                    req_alt = {k: v for k, v in request.items() if k not in ("reasoning_effort", "model")}
+                    req_alt["model"] = alt_model
+                    try:
+                        return _call(req_alt)
+                    except Exception:
+                        continue
 
             # Transient 500/502/503/504 or 429 rate limit: pause briefly and retry once
             if status_code in (429, 500, 502, 503, 504):
@@ -239,6 +261,7 @@ def resolve_provider(
     choice: str = LLM_PROVIDER,
     gemini_key: str | None = None,
     anthropic_key: str | None = None,
+    gemini_model: str | None = None,
 ) -> Provider | None:
     """Return a provider, or None when no key is configured.
 
@@ -248,15 +271,16 @@ def resolve_provider(
     """
     gemini_key = gemini_key or os.getenv("GEMINI_API_KEY") or None
     anthropic_key = anthropic_key or os.getenv("ANTHROPIC_API_KEY") or None
+    model = gemini_model or GEMINI_MODEL
 
     if choice == "gemini":
-        return gemini_provider(gemini_key) if gemini_key else None
+        return gemini_provider(gemini_key, model=model) if gemini_key else None
     if choice == "anthropic":
         return anthropic_provider(anthropic_key) if anthropic_key else None
 
     # auto: prefer the free tier, so the public demo costs nothing by default.
     if gemini_key:
-        return gemini_provider(gemini_key)
+        return gemini_provider(gemini_key, model=model)
     if anthropic_key:
         return anthropic_provider(anthropic_key)
     return None

@@ -148,9 +148,10 @@ def secret(name: str) -> str | None:
 def get_provider():
     """The answer backend, or None for retrieval-only mode."""
     return resolve_provider(
-        LLM_PROVIDER,
+        secret("LLM_PROVIDER") or LLM_PROVIDER,
         gemini_key=secret("GEMINI_API_KEY"),
         anthropic_key=secret("ANTHROPIC_API_KEY"),
+        gemini_model=secret("GEMINI_MODEL"),
     )
 
 
